@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package org.brewchain.raftnet.pbgens;
+
+enum PModule {
+	RAF = 0;
+};
+enum PCommand {
+	JIN = 0; //申请加入节点集群,follow up
+	INF = 1; //获取当前网络信息
+	
+	VOT = 2; //RAFT主节点投票
+	LOG = 3; //Appended Log
+	
+	TTT = 30;//ping,pong,wall ,testing
+};
+
+message PRaftNode{
+	string bcuid = 1;//节点
+	string address = 2;//拥有cws的地址
+}
+
+message PSJoin{//加入
+	PRaftNode  rn = 1;
+}
+
+message PRetJoin{//加入的返回信息
+	int32 ret_code = 1;//返回
+	string ret_message = 2;//返回信息
+
+	PRaftNode rn = 3;//交换一下我自己的节点信息
+	repeated PRaftNode nodes = 4;//交换一下我知道的节点信息
+	
+	string sign = 100;//对上述数据的签名结果
+}
+
+
+message PSNodeInfo{//加入
+	string req_token = 1;//是否获取拓扑信息
+	
+	int32 	cur_term = 2;
+	int64 	logidx = 3;
+	string 	voted_for = 4;//
+	int64 	commit_index = 5;
+	int64	last_applied = 6;//
+	
+	
+}
+
+message PRetNodeInfo{//加入的返回信息
+	int32 ret_code = 1;//返回
+	string ret_message = 2;//返回信息
+
+	string curr_id = 3;//本节点信息
+	string leader_id = 4;//主节点信息
+	
+	repeated PRaftNode nodes = 6;//交换一下我知道的节点信息
+	
+	string sign = 100;//对上述数据的签名结果
+}
+
+enum RaftState{
+	RS_INIT = 0;
+	RS_FOLLOWER = 1;
+	RS_CANDIDATE = 2;
+	RS_LEADER = 3;
+}
+
+message  PSRequestVote{
+	int64 req_term = 1;
+	string candidate_bcuid = 2;
+	int64 last_log_Idx = 3;
+	int64 last_log_term = 4;
+	int32 vote_n = 5;//how many node to vote.
+}
+
+
+enum RaftVoteResult{
+	RVR_GRANTED = 0;
+	RVR_NOT_GRANT = 1;
+	RVR_UNKNOW = 2;
+}
+
+message  PRetRequestVote{
+	int64 res_term = 1;
+	bool vote_result = 2;
+}
+
+message PLogEntry{
+	string log_uid = 1;
+	string from_bcuid = 2;
+	bytes	data = 10;
+	string sign = 50;
+}
+
+message PSAppendEntries{
+	int64 req_term = 1;
+	string leader_bcuid = 2;
+	int64 prev_log_Idx = 3;
+	int64 prev_log_term = 4;
+	repeated PLogEntry entries = 5;
+	int64 commit_idx = 6;
+}
+
+message PRetAppendEntries{
+	int64 res_term = 1;
+	int32 ret_code = 2;
+	string ret_message = 3; 
+}
+
+
+
+enum TestMessageType{
+	WALL  = 0;
+	PING  = 1;
+	PONG  = 2;
+	
+}
+message PSTestMessage{
+	string content = 1;//消息字段
+	TestMessageType type = 2;//
+	int64 wall_time = 3;
+	int64 recv_time = 4;
+	string messageid = 5;
+	string org_bcuid = 6;
+	string from_bcuid = 7;
+	bool dwall = 8;
+	bool block = 10;
+	int64 ps = 9 ;
+	string nid = 50;//网络ID
+}
+
+message PRetTestMessage{
+	int32 ret_code = 1;//返回
+	string ret_message = 2;//返回信息
+
+	int32 dnode_count = 3;
+	int32 pending_count = 4;
+	
+	string bitencs = 5;
+	string nid = 50;//网络ID
+}
+ 
