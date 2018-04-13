@@ -20,6 +20,8 @@ import org.brewchain.bcapi.backend.ODBDao
 import onight.tfw.ojpa.api.StoreServiceProvider
 import onight.tfw.ntrans.api.ActorService
 import org.brewchain.raftnet.pbgens.Raftnet.PModule
+import org.fc.brewchain.p22p.node.Networks
+import org.fc.brewchain.p22p.core.PZPCtrl
 
 abstract class PSMRaftNet[T <: Message] extends SessionModules[T] with PBUtils with OLog {
   override def getModule: String = PModule.RAF.name()
@@ -33,6 +35,10 @@ object Daos extends PSMRaftNet[Message] with ActorService {
   @BeanProperty
   var raftdb: ODBSupport = null
 
+  @StoreDAO(target = "bc_bdb", daoClass = classOf[ODSLogIdxDao])
+  @BeanProperty
+  var idxdb: ODBSupport = null
+
   def setRaftdb(daodb: DomainDaoSupport) {
     if (daodb != null && daodb.isInstanceOf[ODBSupport]) {
       raftdb = daodb.asInstanceOf[ODBSupport];
@@ -42,12 +48,14 @@ object Daos extends PSMRaftNet[Message] with ActorService {
   }
 
   def isDbReady(): Boolean = {
-    return raftdb != null && raftdb.getDaosupport.isInstanceOf[ODBSupport];
+    return raftdb != null && raftdb.getDaosupport.isInstanceOf[ODBSupport] &&
+      idxdb != null && idxdb.getDaosupport.isInstanceOf[ODBSupport] &&
+      pzp != null;
   }
 
+  @ActorRequire(scope = "global", name = "pzpctrl")
   @BeanProperty
-  @PSender
-  var pSender: IPacketSender = null;
+  var pzp: PZPCtrl = null;
 
 }
 

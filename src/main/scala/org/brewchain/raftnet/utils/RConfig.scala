@@ -3,9 +3,18 @@ package org.brewchain.raftnet.utils
 import onight.tfw.mservice.NodeHelper
 import onight.tfw.outils.conf.PropHelper
 
-object Config {
+object RConfig {
   val prop: PropHelper = new PropHelper(null);
-  val PROP_DOMAIN = "org.bc.pzp."
+  val PROP_DOMAIN = "org.bc.rn."
+  
+  val VOTE_QUORUM_RATIO = prop.get(PROP_DOMAIN + "vote.quorum.ratio", 60);//60%
+  
+  val SYNCLOG_PAGE_SIZE = prop.get(PROP_DOMAIN + "synclog.page.size", 10);//60%
+  
+  val SYNCLOG_MAX_RUNNER = prop.get(PROP_DOMAIN + "synclog.max.runner", 10);//60%
+  val SYNCLOG_WAITSEC_NEXTRUN = prop.get(PROP_DOMAIN + "synclog.waitsec.nextrun", 10);//60%
+  val SYNCLOG_WAITSEC_ALLRUN = prop.get(PROP_DOMAIN + "synclog.waitsec.allrun", 600);//60%
+  
   val TIMEOUT_STATE_VIEW = prop.get(PROP_DOMAIN + "timeout.state.view", 60 * 1000);
   val TIMEOUT_STATE_VIEW_RESET = prop.get(PROP_DOMAIN + "timeout.state.view.reset", 360 * 1000);
   val MIN_EPOCH_EACH_VOTE = prop.get(PROP_DOMAIN + "min.epoch.each.vote", 10*1000)

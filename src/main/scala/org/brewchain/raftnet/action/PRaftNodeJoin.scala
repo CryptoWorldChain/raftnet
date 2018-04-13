@@ -3,7 +3,6 @@ package org.brewchain.raftnet.action
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import org.fc.brewchain.bcapi.crypto.EncHelper
 import lombok.extern.slf4j.Slf4j
 import onight.oapi.scala.commons.LService
 import onight.oapi.scala.commons.PBUtils
@@ -26,6 +25,9 @@ import org.fc.brewchain.p22p.utils.LogHelper
 import org.fc.brewchain.p22p.action.PMNodeHelper
 import org.brewchain.raftnet.pbgens.Raftnet.PRetJoin
 import org.brewchain.raftnet.pbgens.Raftnet.PCommand
+import org.brewchain.raftnet.tasks.RaftStateManager
+import org.brewchain.raftnet.tasks.RSM
+import org.brewchain.raftnet.pbgens.Raftnet.RaftState
 
 @NActorProvider
 @Slf4j
@@ -39,14 +41,23 @@ object PRaftNodeJoinService extends LogHelper with PBUtils with LService[PSJoin]
   override def onPBPacket(pack: FramePacket, pbo: PSJoin, handler: CompleteHandler) = {
     log.debug("JoinService::" + pack.getFrom())
     var ret = PRetJoin.newBuilder();
-    val network = networkByID("raft")
-    if (network == null) {
-      ret.setRetCode(-1).setRetMessage("unknow network:Raft")
+    if (!RSM.isReady()) {
+      ret.setRetCode(-1).setRetMessage("Raft Network Not READY")
       handler.onFinished(PacketHelper.toPBReturn(pack, ret.build()))
     } else {
       try {
-        MDCSetBCUID(network)
-
+        MDCSetBCUID(RSM.raftNet)
+        MDCSetMessageID(pbo.getMessageId)
+        ret.setMessageId(pbo.getMessageId);
+        //
+        ret.setRn(RSM.curRN());
+        RSM.raftFollowNetByUID.map(rn => {
+          ret.addNodes(rn._2);
+        })
+        if (pbo.getRn.getState == RaftState.RS_INIT) {
+//          RSM.raftFollowNetByUID.put(pbo.getRn.getBcuid, pbo.getRn);
+        }
+        ret.setRetCode(0).setRetMessage("SUCCESS");
       } catch {
         case e: FBSException => {
           ret.clear()

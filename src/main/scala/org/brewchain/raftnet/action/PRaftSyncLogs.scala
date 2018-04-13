@@ -25,38 +25,49 @@ import org.fc.brewchain.p22p.utils.LogHelper
 import org.fc.brewchain.p22p.action.PMNodeHelper
 import org.brewchain.raftnet.pbgens.Raftnet.PRetJoin
 import org.brewchain.raftnet.pbgens.Raftnet.PCommand
-import org.brewchain.raftnet.pbgens.Raftnet.PSRequestVote
-import org.brewchain.raftnet.pbgens.Raftnet.PRetRequestVote
-import org.brewchain.raftnet.pbgens.Raftnet.PSAppendEntries
-import org.brewchain.raftnet.pbgens.Raftnet.PRetAppendEntries
+import org.brewchain.raftnet.tasks.RaftStateManager
+import org.brewchain.raftnet.tasks.RSM
+import org.brewchain.raftnet.pbgens.Raftnet.PSSyncEntries
+import org.brewchain.raftnet.Daos
+import org.brewchain.raftnet.pbgens.Raftnet.PRetSyncEntries
 
 @NActorProvider
 @Slf4j
-object PRaftAppendEntries extends PSMRaftNet[PSAppendEntries] {
-  override def service = PRaftAppendEntriesService
+object PRaftSyncLogs extends PSMRaftNet[PSSyncEntries] {
+  override def service = PRaftSyncLogsService
 }
 
 //
 // http://localhost:8000/fbs/xdn/pbget.do?bd=
-object PRaftAppendEntriesService extends LogHelper with PBUtils with LService[PSAppendEntries] with PMNodeHelper {
-  override def onPBPacket(pack: FramePacket, pbo: PSAppendEntries, handler: CompleteHandler) = {
-    log.debug("JoinService::" + pack.getFrom())
-    var ret = PRetAppendEntries.newBuilder();
-    val network = networkByID("raft")
-    if (network == null) {
-//      ret.setRetCode(-1).setRetMessage("unknow network:Raft")
+object PRaftSyncLogsService extends LogHelper with PBUtils with LService[PSSyncEntries] with PMNodeHelper {
+  override def onPBPacket(pack: FramePacket, pbo: PSSyncEntries, handler: CompleteHandler) = {
+    log.debug("RequestSyncService::" + pack.getFrom())
+    var ret = PRetSyncEntries.newBuilder();
+    if (!RSM.isReady()) {
+      ret.setRetCode(-1).setRetMessage("Raft Network Not READY")
       handler.onFinished(PacketHelper.toPBReturn(pack, ret.build()))
     } else {
       try {
-        MDCSetBCUID(network)
-
+        MDCSetBCUID(RSM.raftNet)
+        //
+        for (
+          id <- pbo.getStartIdx to  pbo.getEndIdx
+        ) {
+          val ov = Daos.getIdxdb().get("R" + id).get
+          if (ov != null) {
+            ret.addEntries(ov.getExtdata);
+          }
+        }
+        ret.setRetCode(0).setRetMessage("SUCCESS");
       } catch {
         case e: FBSException => {
           ret.clear()
+          ret.setRetCode(-2).setRetMessage(e.getMessage)
         }
         case t: Throwable => {
           log.error("error:", t);
           ret.clear()
+          ret.setRetCode(-3).setRetMessage(t.getMessage)
         }
       } finally {
         handler.onFinished(PacketHelper.toPBReturn(pack, ret.build()))
@@ -64,5 +75,5 @@ object PRaftAppendEntriesService extends LogHelper with PBUtils with LService[PS
     }
   }
   //  override def getCmds(): Array[String] = Array(PWCommand.LST.name())
-  override def cmd: String = PCommand.LOG.name();
+  override def cmd: String = PCommand.SYN.name();
 }

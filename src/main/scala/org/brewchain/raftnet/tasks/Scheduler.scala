@@ -6,7 +6,6 @@ import java.util.HashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ScheduledFuture
 
-
 object Scheduler extends OLog {
   val scheduler = new ScheduledThreadPoolExecutor(100);
   def shutdown() {
@@ -23,7 +22,7 @@ object Scheduler extends OLog {
   }
 
   def stopGroupRunners(group: String) {
-    log.debug("stopGroupRunners:"+group);
+    log.debug("stopGroupRunners:" + group);
     runnerByGroupAddr.synchronized({
       val group_runners = runnerByGroupAddr.get(group)
       if (group_runners != null) {
@@ -34,6 +33,9 @@ object Scheduler extends OLog {
         runnerByGroupAddr.remove(group);
       }
     })
+  }
+  def runOnce(runner: Runnable): Unit = {
+    scheduler.submit(runner);
   }
 
   def updateRunner(group: String, addr: String, runner: Runnable, delay: Long) = {
@@ -57,14 +59,14 @@ object Scheduler extends OLog {
     })
   }
   def main(args: Array[String]): Unit = {
-    Scheduler.updateRunner("grp1","abc", new Runnable {
+    Scheduler.updateRunner("grp1", "abc", new Runnable {
       def run() = {
         println("running::" + System.currentTimeMillis())
       }
     }, 1);
 
     Thread.sleep(10000);
-    Scheduler.updateRunner("grp1","abc", null, -1);
+    Scheduler.updateRunner("grp1", "abc", null, -1);
     Thread.sleep(10000);
     Scheduler.shutdown()
   }
