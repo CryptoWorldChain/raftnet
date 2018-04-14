@@ -34,6 +34,8 @@ message PRaftNode{
 	int64		last_applied = 8;//
 	int64 		term_start_ms = 9;//表示当前term的开始时间
 	int64		term_end_ms	 = 10;//表示当前term的最后时间
+	string		term_uid = 11;//记录当前termid
+	int32		vote_n = 20;//
 }
 
 message PSJoin{//加入
@@ -69,16 +71,18 @@ message PRetNodeInfo{//加入的返回信息
 	string sign = 100;//对上述数据的签名结果
 }
 
-
 message  PSRequestVote{
-	int64 req_term = 1;
-	string candidate_bcuid = 2;
-	int64 last_log_Idx = 3;
-	int64 last_log_term = 4;
-	int32 vote_n = 5;//how many node to vote.
-	string message_id = 30;
+	int64 	req_term = 1;
+	string 	candidate_bcuid = 2;
+	int64 	last_log_Idx = 3;
+	int64 	last_log_term = 4;
+	int32 	vote_n = 5;//how many node to vote.
+	RaftVoteResult	vr = 6;// vote result from my
+	string	result_from = 7;//
+	int64	term_end_ms = 8;//when to end
+	string 	message_id = 30;
+	
 }
-
 
 enum RaftVoteResult{
 	RVR_GRANTED = 0;

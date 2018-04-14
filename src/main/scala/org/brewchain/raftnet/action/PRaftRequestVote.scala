@@ -27,6 +27,12 @@ import org.brewchain.raftnet.pbgens.Raftnet.PRetJoin
 import org.brewchain.raftnet.pbgens.Raftnet.PCommand
 import org.brewchain.raftnet.pbgens.Raftnet.PSRequestVote
 import org.brewchain.raftnet.pbgens.Raftnet.PRetRequestVote
+import org.brewchain.raftnet.tasks.RSM
+import org.brewchain.raftnet.Daos
+import org.brewchain.bcapi.gens.Oentity.OValue
+import org.brewchain.raftnet.pbgens.Raftnet.RaftState
+import org.brewchain.raftnet.pbgens.Raftnet.RaftVoteResult
+import org.fc.brewchain.bcapi.JodaTimeHelper
 
 @NActorProvider
 @Slf4j
@@ -38,15 +44,47 @@ object PRaftRequestVote extends PSMRaftNet[PSRequestVote] {
 // http://localhost:8000/fbs/xdn/pbget.do?bd=
 object PRaftRequestVoteService extends LogHelper with PBUtils with LService[PSRequestVote] with PMNodeHelper {
   override def onPBPacket(pack: FramePacket, pbo: PSRequestVote, handler: CompleteHandler) = {
-    log.debug("JoinService::" + pack.getFrom())
+    log.debug("RequestVoteService::" + pack.getFrom())
     var ret = PRetRequestVote.newBuilder();
     val network = networkByID("raft")
     if (network == null) {
-//      ret.setRetCode(-1).setRetMessage("unknow network:Raft")
+      //      ret.setRetCode(-1).setRetMessage("unknow network:Raft")
       handler.onFinished(PacketHelper.toPBReturn(pack, ret.build()))
     } else {
       try {
         MDCSetBCUID(network)
+        MDCSetMessageID(pbo.getMessageId)
+
+        if (StringUtils.isNotBlank(pbo.getResultFrom)) {
+          if (RSM.curRN().getState == RaftState.RS_CANDIDATE && StringUtils.equals(pbo.getMessageId, RSM.curVR.getMessageId) &&
+            pbo.getReqTerm == RSM.curVR.getReqTerm &&
+            pbo.getCandidateBcuid == RSM.curVR.getCandidateBcuid) {
+            log.debug("get VoteResults from:" + pbo.getResultFrom);
+            Daos.raftdb.put(pbo.getResultFrom + "-" + pbo.getMessageId + "-" + pbo.getReqTerm, // 
+              OValue.newBuilder().setSecondKey("R" + pbo.getReqTerm)
+                .setExtdata(pbo.toByteString())
+                .build())
+          } else {
+            log.debug("cannot put vote result:Cur(S=" + RSM.curRN().getState + ",N=" + RSM.curVR.getCandidateBcuid
+              + ",T=" + RSM.curVR.getReqTerm + "),PBO(ReqTerm=" + pbo.getReqTerm + ",N=" + pbo.getCandidateBcuid + ")")
+          }
+        } else {
+          log.debug("get requestvote:T=" + pbo.getReqTerm + ",curT=" + RSM.curRN().getCurTerm)
+          val newv = pbo.toBuilder();
+          newv.setResultFrom(RSM.curRN.getBcuid)
+          if (RSM.instance.updateNodeState(pbo,RaftState.RS_FOLLOWER)) {
+            //newv.setVoteN(value)
+            newv.setVr(RaftVoteResult.RVR_GRANTED)
+            log.debug("grant leader for vote:B="+newv.getCandidateBcuid+",N="+newv.getVoteN+",T="
+                +newv.getReqTerm+",NextSec="
+                +JodaTimeHelper.secondFromNow(pbo.getTermEndMs)
+                );
+            RSM.resetVoteRequest()
+          } else {
+            newv.setVr(RaftVoteResult.RVR_NOT_GRANT)
+          }
+          RSM.raftNet().postMessage("VOTRAF", Left(newv.build()), newv.getMessageId, newv.getCandidateBcuid);
+        }
 
       } catch {
         case e: FBSException => {

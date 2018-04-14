@@ -11,6 +11,9 @@ import org.apache.commons.lang3.StringUtils
 import org.fc.brewchain.p22p.node.Node
 import org.brewchain.raftnet.utils.RConfig
 import scala.collection.mutable.Map
+import org.brewchain.raftnet.pbgens.Raftnet.PSRequestVote
+import java.util.concurrent.atomic.AtomicLong
+import org.fc.brewchain.bcapi.JodaTimeHelper
 
 //投票决定当前的节点
 case class RaftStateManager(network: Network) extends SRunner with LogHelper {
@@ -19,22 +22,89 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
   var cur_rnode: PRaftNode.Builder = PRaftNode.newBuilder()
   var imPRnode: PRaftNode = cur_rnode.build()
 
+  val logIdxCounter = new AtomicLong(1)
+
+  def getNexLogID(): Long = {
+    logIdxCounter.incrementAndGet()
+  }
+
+  def retsetLogID(idx: Long): Unit = {
+    logIdxCounter.set(idx)
+  }
+
   def updateLastApplidId(lastApplied: Long): Boolean = {
     this.synchronized({
       if (lastApplied > cur_rnode.getLastApplied) {
         cur_rnode.setLastApplied(lastApplied)
+        imPRnode = cur_rnode.build();
+        syncCurnodToDB();
         true
       } else {
         false
       }
     })
   }
+
+  def updateNodeState(newState: RaftState, term: Long = -1, voteFor: String = null): Unit = {
+    this.synchronized({
+      cur_rnode.setState(newState);
+      if (term > 0 && term > cur_rnode.getCurTerm) {
+        cur_rnode.setCurTerm(term);
+      }
+      if (voteFor != null) {
+        cur_rnode.setVotedFor(voteFor)
+      }else
+      {
+        cur_rnode.clearVotedFor().clearTermUid()
+      }
+      imPRnode = cur_rnode.build();
+    })
+  }
+
+  def updateNodeState(vr: PSRequestVote,newState: RaftState): Boolean = {
+    this.synchronized({
+      if (vr.getReqTerm > cur_rnode.getCurTerm && cur_rnode.getState != RaftState.RS_LEADER &&
+        (vr.getTermEndMs - System.currentTimeMillis()) / 1000 < RConfig.MAX_TERM_SEC) {
+        cur_rnode.setState(newState)
+          .setTermEndMs(vr.getTermEndMs)
+          .setVoteN(vr.getVoteN)
+          .setVotedFor(vr.getCandidateBcuid)
+          .setTermUid(vr.getMessageId)
+          .setCurTerm(vr.getReqTerm)
+        imPRnode = cur_rnode.build();
+        this.syncCurnodToDB()
+        true
+      } else {
+        false
+      }
+
+    })
+  }
+
+  def updateNodeIdxs(leader: PRaftNodeOrBuilder): Unit = {
+    this.synchronized({
+      if (leader.getCurTerm > cur_rnode.getCurTerm) {
+        cur_rnode.setCurTerm(leader.getCurTerm);
+        cur_rnode.setTermStartMs(leader.getTermStartMs)
+        cur_rnode.setTermEndMs(leader.getTermEndMs)
+          .setVoteN(leader.getVoteN)
+          .setTermUid(leader.getTermUid)
+        cur_rnode.setState(RaftState.RS_FOLLOWER);
+      } else if (leader == cur_rnode) {
+        cur_rnode.setState(RaftState.RS_FOLLOWER);
+      }
+      imPRnode = cur_rnode.build();
+    })
+    if (leader.getCommitIndex > cur_rnode.getCommitIndex) {
+      LogSync.tryBackgroundSyncLogs(leader.getCommitIndex, leader.getBcuid)(network);
+    }
+  }
   def loadNodeFromDB(): PRaftNode.Builder = {
     val ov = Daos.raftdb.get(RAFT_NODE_DB_KEY).get
     val root_node = network.root();
-
     if (ov == null) {
       cur_rnode.setAddress(root_node.v_address).setBcuid(root_node.bcuid)
+        .setLogIdx(1)
       Daos.raftdb.put(RAFT_NODE_DB_KEY,
         OValue.newBuilder().setExtdata(cur_rnode.build().toByteString()).build())
     } else {
@@ -49,41 +119,74 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
     imPRnode = cur_rnode.build();
     cur_rnode
   }
+  def syncCurnodToDB() {
+    Daos.raftdb.put(RAFT_NODE_DB_KEY,
+      OValue.newBuilder().setExtdata(cur_rnode.build().toByteString()).build())
+  }
   def runOnce() = {
     Thread.currentThread().setName("RaftStateManager");
     implicit val _net = network
     MDCSetBCUID(network);
+    MDCRemoveMessageID()
     try {
       //      RaftStateManager.rsm = this;
+      log.info("RSM.RunOnce:S=" + cur_rnode.getState + ",T=" + cur_rnode.getCurTerm + ",L=" + cur_rnode.getLogIdx
+        + ",N=" + cur_rnode.getVoteN
+        + ",RN=" + RSM.raftFollowNetByUID.size
+        + ",OL=" + cur_rnode.getLastApplied + ",CL=" + cur_rnode.getCommitIndex 
+        + ",NextSec=" + JodaTimeHelper.secondFromNow(cur_rnode.getTermEndMs)
+        +",Leader="+cur_rnode.getVotedFor+",TUID="+cur_rnode.getTermUid);
       cur_rnode.getState match {
         case RaftState.RS_INIT =>
           //tell other I will join
-          //  network.wallMessage("", body, messageId)
-          if (RSM.raftFollowNetByUID.size == 0) {
-            RTask_Join.runOnce
-          } else if (RSM.raftFollowNetByUID.size >= network.directNodes.size * RConfig.VOTE_QUORUM_RATIO / 100) {
-            //
-            log.debug("get quorum Reply:RN= " + RSM.raftFollowNetByUID.size + ",DN=" + network.directNodes.size)
-            val (maxterm, maxapply, maxcommitIdx) = RSM.raftFollowNetByUID.values.foldLeft((0L, 0L, 0L))((A, n) =>
-              (Math.max(A._1, n.getCurTerm), Math.max(A._1, n.getLastApplied), Math.max(A._1, n.getCommitIndex)))
-            if (cur_rnode.getCommitIndex < maxcommitIdx) {
-              //request log.
+          loadNodeFromDB();
+          RSM.raftFollowNetByUID.put(RSM.curRN().getBcuid, RSM.curRN());
 
-            }
-          } else {
-
-            log.debug("not get quorum number:RN= " + RSM.raftFollowNetByUID.size + ",DN=" + network.directNodes.size)
+          RTask_Join.runOnce match {
+            case n: PRaftNodeOrBuilder =>
+              updateNodeIdxs(n);
+            case x @ _ =>
+              log.debug("not other nodes :" + x)
           }
 
         case RaftState.RS_FOLLOWER =>
-        //time out to elect candidate
-
+          //time out to elect candidate
+          //          if(network.directNodes.size > cur_rnode.getVoteN){
+          //            //has other node coming
+          //            RTask_Join.runOnce
+          //          }else
+          if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
+            val sleeptime =
+              Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
+              RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long]
+            log.debug("follow sleep to be candidate:" + sleeptime);
+            updateNodeState(RaftState.RS_CANDIDATE);
+            Thread.sleep(sleeptime)
+          }else{
+            RTask_Join.runOnce
+          }
         case RaftState.RS_CANDIDATE =>
-        //check vote result
-
+          //check vote result
+          if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
+            //elected
+            //try to elect
+            if (RTask_RequestVote.runOnce) {
+              // i will be master
+              //wall logs//send log immediately
+              retsetLogID(cur_rnode.getLogIdx);
+              RTask_SendEmptyEntry.runOnce
+            }
+          }
         case RaftState.RS_LEADER =>
-        //time out to become follower
-
+          //time out to become follower
+          //
+          if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
+            //elected
+            //try to elect
+            updateNodeState(RaftState.RS_FOLLOWER)
+          } else {
+            RTask_SendEmptyEntry.runOnce
+          }
         case _ =>
           log.warn("unknow State:" + cur_rnode.getState);
 
@@ -91,9 +194,9 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
 
     } catch {
       case e: Throwable =>
-        log.debug("JoinNetwork :Error", e);
+        log.debug("raft sate managr :Error", e);
     } finally {
-      log.debug("JoinNetwork :[END]")
+      MDCRemoveMessageID()
     }
   }
 }
@@ -102,7 +205,13 @@ object RSM {
   var instance: RaftStateManager = RaftStateManager(null);
   def raftNet(): Network = instance.network;
   def curRN(): PRaftNode = instance.imPRnode
+  var curVR: PSRequestVote = PSRequestVote.newBuilder().build();
   val raftFollowNetByUID: Map[String, PRaftNode] = Map.empty[String, PRaftNode];
+  def resetVoteRequest() {
+    curVR = PSRequestVote.newBuilder().build();
+//    instance.cur_rnode.setTermEndMs(System.currentTimeMillis() + Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
+//      RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long])
+  }
   def isReady(): Boolean = {
     instance.network != null &&
       instance.cur_rnode.getStateValue > RaftState.RS_INIT_VALUE

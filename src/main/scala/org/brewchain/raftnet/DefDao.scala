@@ -46,6 +46,14 @@ object Daos extends PSMRaftNet[Message] with ActorService {
       log.warn("cannot set raftdb ODBSupport from:" + daodb);
     }
   }
+  
+   def setIdxdb(daodb: DomainDaoSupport) {
+    if (daodb != null && daodb.isInstanceOf[ODBSupport]) {
+      idxdb = daodb.asInstanceOf[ODBSupport];
+    } else {
+      log.warn("cannot set idxdb ODBSupport from:" + daodb);
+    }
+  }
 
   def isDbReady(): Boolean = {
     return raftdb != null && raftdb.getDaosupport.isInstanceOf[ODBSupport] &&

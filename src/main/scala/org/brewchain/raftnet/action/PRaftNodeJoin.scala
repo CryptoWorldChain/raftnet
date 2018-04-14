@@ -39,7 +39,7 @@ object PRaftNodeJoin extends PSMRaftNet[PSJoin] {
 // http://localhost:8000/fbs/xdn/pbget.do?bd=
 object PRaftNodeJoinService extends LogHelper with PBUtils with LService[PSJoin] with PMNodeHelper {
   override def onPBPacket(pack: FramePacket, pbo: PSJoin, handler: CompleteHandler) = {
-    log.debug("JoinService::" + pack.getFrom())
+    log.debug("RaftJoinService::" + pack.getFrom())
     var ret = PRetJoin.newBuilder();
     if (!RSM.isReady()) {
       ret.setRetCode(-1).setRetMessage("Raft Network Not READY")
@@ -54,9 +54,9 @@ object PRaftNodeJoinService extends LogHelper with PBUtils with LService[PSJoin]
         RSM.raftFollowNetByUID.map(rn => {
           ret.addNodes(rn._2);
         })
-        if (pbo.getRn.getState == RaftState.RS_INIT) {
-//          RSM.raftFollowNetByUID.put(pbo.getRn.getBcuid, pbo.getRn);
-        }
+//        if (pbo.getRn.getState == RaftState.RS_INIT) {
+          RSM.raftFollowNetByUID.put(pbo.getRn.getBcuid, pbo.getRn);
+//        }
         ret.setRetCode(0).setRetMessage("SUCCESS");
       } catch {
         case e: FBSException => {

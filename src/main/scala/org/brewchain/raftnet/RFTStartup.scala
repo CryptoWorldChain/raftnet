@@ -12,6 +12,9 @@ import java.net.URL
 import onight.tfw.mservice.NodeHelper
 import org.brewchain.raftnet.tasks.RaftStateManager
 import org.brewchain.raftnet.tasks.RSM
+import org.brewchain.raftnet.tasks.Scheduler
+import java.util.concurrent.TimeUnit
+import org.brewchain.raftnet.utils.RConfig
 
 @NActorProvider
 object RFTStartup extends PSMRaftNet[Message] {
@@ -49,13 +52,17 @@ class RaftBGLoader() extends Runnable with OLog {
     var raftnet = Daos.pzp.networkByID("raft")
 
     while (raftnet == null
-      || raftnet.node_bits().bitCount <= 0) {
+      || raftnet.node_bits().bitCount <= 0 || !raftnet.inNetwork()) {
       raftnet = Daos.pzp.networkByID("raft")
       log.debug("raftnet not ready. raftnet=" + raftnet)
-      Thread.sleep(1000);
+      Thread.sleep(5000);
     }
     log.debug("raftnet.initOK:My Node" + raftnet.root()) // my node
     RSM.instance = RaftStateManager(raftnet);
+
+    Scheduler.scheduleWithFixedDelay(RSM.instance, RConfig.INITDELAY_RSM_SEC,
+      RConfig.TICK_RSM_SEC, TimeUnit.SECONDS)
+
 
   }
 }

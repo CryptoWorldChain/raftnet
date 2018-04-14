@@ -20,10 +20,24 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeUnit
 object LogSync extends LogHelper {
-  
-  
+
+  val maxWantedCommitIdx = new AtomicLong(0);
+  val runCounter = new AtomicLong(0);
+  def tryBackgroundSyncLogs(maxCommitIdx: Long, fastNodeID: String)(implicit network: Network): Unit = {
+    Scheduler.runOnce(new Runnable() {
+      def run() {
+        LogSync.trySyncLogs(maxCommitIdx, fastNodeID);
+      }
+    })
+  }
   def trySyncLogs(maxCommitIdx: Long, fastNodeID: String)(implicit network: Network): Unit = {
     val cn = RSM.instance.cur_rnode;
+    this.synchronized({
+      if (maxWantedCommitIdx.get >= maxCommitIdx || runCounter.get > 0) {
+        return ;
+      }
+    })
+
     //
     log.debug("get quorum Reply:RN= " + RSM.raftFollowNetByUID.size + ",DN=" + network.directNodes.size)
     //request log.
@@ -33,7 +47,6 @@ object LogSync extends LogHelper {
 
     //        val cdlcount = Math.min(RConfig.SYNCLOG_MAX_RUNNER, pagecount)
     var cc = cn.getCommitIndex + 1;
-    val runCounter = new AtomicLong(0);
     while (cc < maxCommitIdx) {
       val runner = RTask_SyncLog(startIdx = cc, endIdx = Math.min(cc + RConfig.SYNCLOG_PAGE_SIZE - 1, maxCommitIdx),
         network = network, fastNodeID, runCounter)
@@ -51,7 +64,11 @@ object LogSync extends LogHelper {
       }
       Scheduler.runOnce(runner);
     }
-
+    while (runCounter.get > 0) {
+      log.debug("waiting for log syncs:" + runCounter.get);
+      this.synchronized(Thread.sleep(RConfig.SYNCLOG_WAITSEC_NEXTRUN))
+    }
+    log.debug("finished init follow up logs:" + RSM.curRN().getLastApplied);
     //
   }
 }

@@ -46,7 +46,7 @@ case class RTask_SyncLog(startIdx: Long, endIdx: Long,
             var maxid: Long = 0
             val realmap = ret.getEntriesList.map { b => (b, PLogEntry.newBuilder().mergeFrom(b)) }
               .filter { p => p._2.getLogIdx >= startIdx && p._2.getLogIdx <= endIdx }
-            if (realmap.size() == endIdx - startIdx + 1) {
+//            if (realmap.size() == endIdx - startIdx + 1) {
               realmap.map { p =>
                 val b = p._1;
                 val loge = p._2;
@@ -58,10 +58,10 @@ case class RTask_SyncLog(startIdx: Long, endIdx: Long,
                 }
               }
               RSM.instance.updateLastApplidId(maxid);
-            } else {
-              log.warn("cannot get enough entries:wanted:" + startIdx + "-->" + endIdx + ",returnsize=" +
-                ret.getEntriesList.size() + ",after Filter=" + realmap.size);
-            }
+//            } else {
+//              log.warn("cannot get enough entries:wanted:" + startIdx + "-->" + endIdx + ",returnsize=" +
+//                ret.getEntriesList.size() + ",after Filter=" + realmap.size);
+//            }
           }
         }
         def onFailed(e: java.lang.Exception, fp: FramePacket) {

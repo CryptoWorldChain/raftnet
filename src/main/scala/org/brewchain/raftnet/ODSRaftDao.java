@@ -12,7 +12,7 @@ public class ODSRaftDao extends ODBDao {
 
 	@Override
 	public String getDomainName() {
-		return "raftnet";
+		return "raftnet.prop";
 	}
 
 	
