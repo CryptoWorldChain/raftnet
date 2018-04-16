@@ -34,10 +34,15 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
 
   def updateLastApplidId(lastApplied: Long): Boolean = {
     this.synchronized({
-      if (lastApplied > cur_rnode.getLastApplied) {
+      if (lastApplied > cur_rnode.getCommitIndex) {
+        log.debug("updateLastApplidId:Cur=" + cur_rnode.getCommitIndex + ",A=" + cur_rnode.getLastApplied
+          + ",new=" + lastApplied)
         cur_rnode.setLastApplied(lastApplied).setLogIdx(lastApplied).setCommitIndex(lastApplied)
         imPRnode = cur_rnode.build();
-        syncCurnodToDB();
+        if (lastApplied - cur_rnode.getCommitIndex > RConfig.COMMIT_LOG_BATCH
+          || System.currentTimeMillis() - cur_rnode.getLastCommitTime > RConfig.COMMIT_LOG_TIMEOUT_SEC * 1000) {
+          syncCurnodToDB();
+        }
         true
       } else {
         false
@@ -53,15 +58,14 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
       }
       if (voteFor != null) {
         cur_rnode.setVotedFor(voteFor)
-      }else
-      {
+      } else {
         cur_rnode.clearVotedFor().clearTermUid()
       }
       imPRnode = cur_rnode.build();
     })
   }
 
-  def updateNodeState(vr: PSRequestVote,newState: RaftState): Boolean = {
+  def updateNodeState(vr: PSRequestVote, newState: RaftState): Boolean = {
     this.synchronized({
       if (vr.getReqTerm > cur_rnode.getCurTerm && cur_rnode.getState != RaftState.RS_LEADER &&
         (vr.getTermEndMs - System.currentTimeMillis()) / 1000 < RConfig.MAX_TERM_SEC) {
@@ -133,9 +137,11 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
       log.info("RSM.RunOnce:S=" + cur_rnode.getState + ",T=" + cur_rnode.getCurTerm + ",L=" + cur_rnode.getLogIdx
         + ",N=" + cur_rnode.getVoteN
         + ",RN=" + RSM.raftFollowNetByUID.size
-        + ",OL=" + cur_rnode.getLastApplied + ",CL=" + cur_rnode.getCommitIndex 
+        + ",OL=" + cur_rnode.getLastApplied + ",CL=" + cur_rnode.getCommitIndex
         + ",NextSec=" + JodaTimeHelper.secondFromNow(cur_rnode.getTermEndMs)
-        +",Leader="+cur_rnode.getVotedFor+",TUID="+cur_rnode.getTermUid);
+        + ",Leader=" + cur_rnode.getVotedFor + ",TUID=" + cur_rnode.getTermUid
+        + ",VR.T=" + RSM.curVR.getReqTerm
+        + ",VR.P=" + JodaTimeHelper.secondFromNow(RSM.curVR.getVoteStartMs));
       cur_rnode.getState match {
         case RaftState.RS_INIT =>
           //tell other I will join
@@ -148,7 +154,6 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
             case x @ _ =>
               log.debug("not other nodes :" + x)
           }
-
         case RaftState.RS_FOLLOWER =>
           //time out to elect candidate
           //          if(network.directNodes.size > cur_rnode.getVoteN){
@@ -158,11 +163,11 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
           if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
             val sleeptime =
               Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
-              RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long]
+                RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long]
             log.debug("follow sleep to be candidate:" + sleeptime);
             updateNodeState(RaftState.RS_CANDIDATE);
             Thread.sleep(sleeptime)
-          }else{
+          } else {
             RTask_Join.runOnce
           }
         case RaftState.RS_CANDIDATE =>
@@ -209,8 +214,8 @@ object RSM {
   val raftFollowNetByUID: Map[String, PRaftNode] = Map.empty[String, PRaftNode];
   def resetVoteRequest() {
     curVR = PSRequestVote.newBuilder().build();
-//    instance.cur_rnode.setTermEndMs(System.currentTimeMillis() + Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
-//      RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long])
+    //    instance.cur_rnode.setTermEndMs(System.currentTimeMillis() + Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
+    //      RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long])
   }
   def isReady(): Boolean = {
     instance.network != null &&

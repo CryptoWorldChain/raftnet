@@ -63,7 +63,10 @@ object PRaftSyncLogsService extends LogHelper with PBUtils with LService[PSSyncE
         ) {
           val ov = Daos.idxdb.get("R" + id).get
           if (ov != null) {
+            log.debug("get logByID:" + id);
             ret.addEntries(ov.getExtdata);
+          } else {
+            log.debug("not foundID:" + id);
           }
         }
         ret.setRetCode(0).setRetMessage("SUCCESS");

@@ -39,7 +39,7 @@ object LogSync extends LogHelper {
     })
 
     //
-    log.debug("get quorum Reply:RN= " + RSM.raftFollowNetByUID.size + ",DN=" + network.directNodes.size)
+    log.debug("get quorum Reply: MaxIdx= " + maxCommitIdx + ",cur=" + cn.getCommitIndex)
     //request log.
     val pagecount =
       ((maxCommitIdx - cn.getCommitIndex) / RConfig.SYNCLOG_PAGE_SIZE).asInstanceOf[Int]

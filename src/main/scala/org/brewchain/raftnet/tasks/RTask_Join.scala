@@ -26,6 +26,7 @@ object RTask_Join extends LogHelper with BitMap {
     var fastNode: PRaftNodeOrBuilder = cn;
     var minCost: Long = Long.MaxValue;
     var maxCommitIdx: Long = 0;
+    MDCSetBCUID(network)
 
     network.directNodes.filter { n => !RSM.raftFollowNetByUID.contains(n.bcuid) }.map { n =>
       val start = System.currentTimeMillis();
@@ -43,25 +44,28 @@ object RTask_Join extends LogHelper with BitMap {
                 fastNode = retjoin.getRn;
               }
             }
+            log.debug("get other nodeInfo:T=" + retjoin.getRn.getCurTerm +
+              ",commitLog=" + retjoin.getRn.getCommitIndex + ",lastapply=" +
+              retjoin.getRn.getLastApplied);
             RSM.raftFollowNetByUID.put(retjoin.getRn.getBcuid, retjoin.getRn);
           }
-          log.debug("get nodes:count=" + retjoin.getNodesCount);
         }
         def onFailed(e: java.lang.Exception, fp: FramePacket) {
           log.debug("send JINPZP ERROR " + n.uri + ",e=" + e.getMessage, e)
         }
       })
     }
+    log.debug("get nodes:count=" + RSM.raftFollowNetByUID.size+",raftnetNodecount="+network.directNodeByBcuid.size);
     //remove off line
     RSM.raftFollowNetByUID.filter(p => {
-      network.nodeByBcuid(p._1) == null
+      network.nodeByBcuid(p._1) == network.noneNode
     }).map { p =>
       log.debug("remove Node:" + p._1);
       RSM.raftFollowNetByUID.remove(p._1);
     }
 
     val (maxterm, maxapply, maxcommitIdx) = RSM.raftFollowNetByUID.values.foldLeft((0L, 0L, 0L))((A, n) =>
-      (Math.max(A._1, n.getCurTerm), Math.max(A._1, n.getLastApplied), Math.max(A._1, n.getCommitIndex)))
+      (Math.max(A._1, n.getCurTerm), Math.max(A._2, n.getLastApplied), Math.max(A._3, n.getCommitIndex)))
     log.debug("Get Max(T,A,C):" + maxterm + "," + maxapply + "," + maxcommitIdx
       + "::Cur(T,A,C):" + cn.getCurTerm + "," + cn.getLastApplied + "," + cn.getCommitIndex);
 

@@ -81,6 +81,7 @@ message  PSRequestVote{
 	RaftVoteResult	vr = 6;// vote result from my
 	string	result_from = 7;//
 	int64	term_end_ms = 8;//when to end
+	int64 	vote_start_ms = 9;
 	string 	message_id = 30;
 	
 }

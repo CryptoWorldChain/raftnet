@@ -39,6 +39,7 @@ import org.apache.felix.ipojo.annotations.Provides
 import onight.tfw.ntrans.api.ActorService
 import onight.tfw.proxy.IActor
 import onight.tfw.otransio.api.session.CMDService
+import org.brewchain.raftnet.tasks.LogSync
 
 @NActorProvider
 @Slf4j
@@ -67,7 +68,7 @@ object PRaftRequestVoteService extends LogHelper with PBUtils with LService[PSRe
             if (RSM.curRN().getState == RaftState.RS_CANDIDATE && StringUtils.equals(pbo.getMessageId, RSM.curVR.getMessageId) &&
               pbo.getReqTerm == RSM.curVR.getReqTerm &&
               pbo.getCandidateBcuid == RSM.curVR.getCandidateBcuid) {
-              log.debug("get VoteResults from:" + pbo.getResultFrom);
+              log.debug("get VoteResults from:" + pbo.getResultFrom+",result="+pbo.getVr);
               Daos.raftdb.put(pbo.getResultFrom + "-" + pbo.getMessageId + "-" + pbo.getReqTerm, // 
                 OValue.newBuilder().setSecondKey("R" + pbo.getReqTerm)
                   .setExtdata(pbo.toByteString())
@@ -83,6 +84,11 @@ object PRaftRequestVoteService extends LogHelper with PBUtils with LService[PSRe
             if (RSM.instance.updateNodeState(pbo, RaftState.RS_FOLLOWER)) {
               //newv.setVoteN(value)
               newv.setVr(RaftVoteResult.RVR_GRANTED)
+              if(pbo.getLastLogIdx > RSM.curRN().getLastApplied){
+                //sync log
+                LogSync.tryBackgroundSyncLogs(pbo.getLastLogIdx,pbo.getCandidateBcuid)(network);
+              }
+                  
               log.debug("grant leader for vote:B=" + newv.getCandidateBcuid + ",N=" + newv.getVoteN + ",T="
                 + newv.getReqTerm + ",NextSec="
                 + JodaTimeHelper.secondFromNow(pbo.getTermEndMs));

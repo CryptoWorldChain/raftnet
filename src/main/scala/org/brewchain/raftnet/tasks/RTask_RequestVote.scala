@@ -19,17 +19,18 @@ object RTask_RequestVote extends LogHelper {
     Thread.currentThread().setName("RTask_RequestVote");
     val cn = RSM.curRN();
 
-    if (RSM.curVR.getReqTerm > cn.getCurTerm) {
+    if (RSM.curVR.getReqTerm > cn.getCurTerm &&
+      System.currentTimeMillis() - RSM.curVR.getVoteStartMs < RConfig.MAX_VOTE_WAIT_SEC * 1000) {
       // check db
       val records = Daos.raftdb.listBySecondKey("R" + RSM.curVR.getReqTerm)
       log.debug("check db status:T=" + RSM.curVR.getReqTerm + ",N=" + RSM.curVR.getVoteN + ",dbsize=" +
         records.get.size())
-      if ((records.get.size() + 1 )>= RSM.curVR.getVoteN * RConfig.VOTE_QUORUM_RATIO / 100) {
+      if ((records.get.size() + 1) >= RSM.curVR.getVoteN * RConfig.VOTE_QUORUM_RATIO / 100) {
         log.debug("try to vote:" + records.get.size());
         val reclist = records.get.map { p =>
           PSRequestVote.newBuilder().mergeFrom(p.getValue.getExtdata);
         } ++ Some(RSM.curVR);
-        
+
         Votes.vote(reclist).PBFTVote({ p =>
           Some(p.getVr)
         }, RSM.curVR.getVoteN) match {
@@ -37,7 +38,7 @@ object RTask_RequestVote extends LogHelper {
             log.debug("converge:" + n);
             if (n == RaftVoteResult.RVR_GRANTED) {
               log.debug("Vote Granted will be the leader:" + n);
-              RSM.instance.updateNodeState(RSM.curVR,RaftState.RS_LEADER)
+              RSM.instance.updateNodeState(RSM.curVR, RaftState.RS_LEADER)
               true
             } else if (n == RaftVoteResult.RVR_NOT_GRANT) {
               log.debug("Vote Not Granted" + n);
@@ -71,14 +72,25 @@ object RTask_RequestVote extends LogHelper {
       val lastsec = (Math.abs(Math.random() * RConfig.MAX_TERM_SEC) + RConfig.MIN_TERM_SEC).asInstanceOf[Long]
       val msgid = UUIDGenerator.generate();
       MDCSetMessageID(msgid);
+      
+      log.debug("get RaftNetNodeCount=" + RSM.raftFollowNetByUID.size+",NetworkDNodecount="+network.directNodeByBcuid.size);
 
+      //checking health remove offline nodes.
+      RSM.raftFollowNetByUID.filter(p => {
+        network.nodeByBcuid(p._1) == network.noneNode
+      }).map { p =>
+        log.debug("remove Node:" + p._1);
+        RSM.raftFollowNetByUID.remove(p._1);
+      }
+      val curtime = System.currentTimeMillis()
       RSM.curVR = PSRequestVote.newBuilder()
         .setCandidateBcuid(cn.getBcuid)
-        .setLastLogIdx(cn.getLogIdx)
+        .setLastLogIdx(cn.getLastApplied)
         .setLastLogTerm(cn.getCurTerm)
         .setReqTerm(newterm)
-        .setTermEndMs(System.currentTimeMillis() + lastsec * 1000)
+        .setTermEndMs(curtime + lastsec * 1000)
         .setMessageId(msgid)
+        .setVoteStartMs(curtime)
         .setVoteN(RSM.raftFollowNetByUID.size).build();
       log.debug("try to vote:newterm=" + newterm + ",curterm=" + cn.getCurTerm
         + ",lastsec=" + lastsec + ",voteN=" +
