@@ -22,6 +22,8 @@ import onight.tfw.ntrans.api.ActorService
 import org.brewchain.raftnet.pbgens.Raftnet.PModule
 import org.fc.brewchain.p22p.node.Networks
 import org.fc.brewchain.p22p.core.PZPCtrl
+import org.apache.felix.ipojo.annotations.Provides
+import onight.tfw.ojpa.api.IJPAClient
 
 abstract class PSMRaftNet[T <: Message] extends SessionModules[T] with PBUtils with OLog {
   override def getModule: String = PModule.RAF.name()
@@ -29,7 +31,8 @@ abstract class PSMRaftNet[T <: Message] extends SessionModules[T] with PBUtils w
 
 @NActorProvider
 @Slf4j
-object Daos extends PSMRaftNet[Message] with ActorService {
+@Provides(specifications = Array(classOf[ActorService],classOf[IJPAClient]))
+class Daos extends PSMRaftNet[Message] with ActorService {
 
   @StoreDAO(target = "bc_bdb", daoClass = classOf[ODSRaftDao])
   @BeanProperty
@@ -42,29 +45,46 @@ object Daos extends PSMRaftNet[Message] with ActorService {
   def setRaftdb(daodb: DomainDaoSupport) {
     if (daodb != null && daodb.isInstanceOf[ODBSupport]) {
       raftdb = daodb.asInstanceOf[ODBSupport];
+      Daos.raftdb = raftdb;
     } else {
       log.warn("cannot set raftdb ODBSupport from:" + daodb);
     }
   }
-  
-   def setIdxdb(daodb: DomainDaoSupport) {
+
+  def setIdxdb(daodb: DomainDaoSupport) {
     if (daodb != null && daodb.isInstanceOf[ODBSupport]) {
       idxdb = daodb.asInstanceOf[ODBSupport];
+      Daos.idxdb = idxdb;
     } else {
       log.warn("cannot set idxdb ODBSupport from:" + daodb);
     }
   }
 
+
+  @ActorRequire(scope = "global", name = "pzpctrl")
+  var pzp: PZPCtrl = null;
+
+  def setPzp(_pzp: PZPCtrl) = {
+    pzp = _pzp;
+    Daos.pzp = pzp;
+  }
+  def getPzp(): PZPCtrl = {
+    pzp
+  }
+
+}
+
+object Daos extends OLog {
+  var raftdb: ODBSupport = null
+  var idxdb: ODBSupport = null
+  var pzp: PZPCtrl = null;
+  
   def isDbReady(): Boolean = {
     return raftdb != null && raftdb.getDaosupport.isInstanceOf[ODBSupport] &&
       idxdb != null && idxdb.getDaosupport.isInstanceOf[ODBSupport] &&
       pzp != null;
   }
-
-  @ActorRequire(scope = "global", name = "pzpctrl")
-  @BeanProperty
-  var pzp: PZPCtrl = null;
-
 }
+
 
 

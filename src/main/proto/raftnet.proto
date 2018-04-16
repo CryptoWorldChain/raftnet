@@ -35,6 +35,7 @@ message PRaftNode{
 	int64 		term_start_ms = 9;//表示当前term的开始时间
 	int64		term_end_ms	 = 10;//表示当前term的最后时间
 	string		term_uid = 11;//记录当前termid
+	int64		last_commit_time = 12;//上次提交的时间
 	int32		vote_n = 20;//
 }
 

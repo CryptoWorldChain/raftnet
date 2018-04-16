@@ -31,9 +31,17 @@ import org.brewchain.raftnet.pbgens.Raftnet.PSSyncEntries
 import org.brewchain.raftnet.Daos
 import org.brewchain.raftnet.pbgens.Raftnet.PRetSyncEntries
 
+import org.apache.felix.ipojo.annotations.Instantiate
+import org.apache.felix.ipojo.annotations.Provides
+import onight.tfw.ntrans.api.ActorService
+import onight.tfw.proxy.IActor
+import onight.tfw.otransio.api.session.CMDService
+
 @NActorProvider
 @Slf4j
-object PRaftSyncLogs extends PSMRaftNet[PSSyncEntries] {
+@Instantiate
+@Provides(specifications = Array(classOf[ActorService], classOf[IActor], classOf[CMDService]))
+class PRaftSyncLogs extends PSMRaftNet[PSSyncEntries] {
   override def service = PRaftSyncLogsService
 }
 
@@ -51,9 +59,9 @@ object PRaftSyncLogsService extends LogHelper with PBUtils with LService[PSSyncE
         MDCSetBCUID(RSM.raftNet)
         //
         for (
-          id <- pbo.getStartIdx to  pbo.getEndIdx
+          id <- pbo.getStartIdx to pbo.getEndIdx
         ) {
-          val ov = Daos.getIdxdb().get("R" + id).get
+          val ov = Daos.idxdb.get("R" + id).get
           if (ov != null) {
             ret.addEntries(ov.getExtdata);
           }

@@ -33,10 +33,17 @@ import org.brewchain.raftnet.tasks.RSM
 import org.brewchain.raftnet.pbgens.Raftnet.RaftState
 import org.brewchain.raftnet.tasks.RTask_LogWriter
 import org.brewchain.raftnet.tasks.LogWriter
+import org.apache.felix.ipojo.annotations.Instantiate
+import org.apache.felix.ipojo.annotations.Provides
+import onight.tfw.ntrans.api.ActorService
+import onight.tfw.proxy.IActor
+import onight.tfw.otransio.api.session.CMDService
 
 @NActorProvider
 @Slf4j
-object PRaftAppendEntries extends PSMRaftNet[PSAppendEntries] {
+@Instantiate
+@Provides(specifications = Array(classOf[ActorService], classOf[IActor], classOf[CMDService]))
+class PRaftAppendEntries extends PSMRaftNet[PSAppendEntries] {
   override def service = PRaftAppendEntriesService
 }
 
@@ -86,7 +93,7 @@ object PRaftAppendEntriesService extends LogHelper with PBUtils with LService[PS
                   RSM.raftNet().postMessage("LOGRAF", Left(pbo), pbo.getMessageId, cn.getVotedFor)
                 }
               } else {
-                if (RaftState.RS_CANDIDATE == RaftState.RS_CANDIDATE) {
+                if (cn.getState == RaftState.RS_CANDIDATE) {
                   log.debug("update current state message ok")
                   RSM.instance.updateNodeState(RaftState.RS_FOLLOWER, pbo.getReqTerm, pbo.getLeaderBcuid)
                 }

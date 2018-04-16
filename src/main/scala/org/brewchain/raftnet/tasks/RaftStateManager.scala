@@ -35,7 +35,7 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
   def updateLastApplidId(lastApplied: Long): Boolean = {
     this.synchronized({
       if (lastApplied > cur_rnode.getLastApplied) {
-        cur_rnode.setLastApplied(lastApplied)
+        cur_rnode.setLastApplied(lastApplied).setLogIdx(lastApplied).setCommitIndex(lastApplied)
         imPRnode = cur_rnode.build();
         syncCurnodToDB();
         true
@@ -185,7 +185,7 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
             //try to elect
             updateNodeState(RaftState.RS_FOLLOWER)
           } else {
-            RTask_SendEmptyEntry.runOnce
+            RTask_SendTestEntry.runOnce
           }
         case _ =>
           log.warn("unknow State:" + cur_rnode.getState);

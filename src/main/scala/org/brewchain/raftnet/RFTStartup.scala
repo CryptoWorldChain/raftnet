@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import org.brewchain.raftnet.utils.RConfig
 
 @NActorProvider
-object RFTStartup extends PSMRaftNet[Message] {
+class RFTStartup extends PSMRaftNet[Message] {
 
   override def getCmds: Array[String] = Array("SSS");
 
@@ -25,10 +25,10 @@ object RFTStartup extends PSMRaftNet[Message] {
   def init() {
 
     //    System.setProperty("java.protocol.handler.pkgs", "org.fc.brewchain.url");
-    log.info("startup:");
+    log.debug("startup:");
     new Thread(new RaftBGLoader()).start()
 
-    log.info("tasks inited....[OK]");
+    log.debug("tasks inited....[OK]");
   }
 
   @Invalidate

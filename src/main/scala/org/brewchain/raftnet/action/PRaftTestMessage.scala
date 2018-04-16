@@ -51,16 +51,22 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ConcurrentHashMap
 import org.fc.brewchain.p22p.action.PMNodeHelper
 import org.brewchain.raftnet.PSMRaftNet
+import org.apache.felix.ipojo.annotations.Instantiate
+import org.apache.felix.ipojo.annotations.Provides
+import onight.tfw.ntrans.api.ActorService
+import onight.tfw.proxy.IActor
+import onight.tfw.otransio.api.session.CMDService
 
 @NActorProvider
 @Slf4j
-object PZPTestMessage extends PSMRaftNet[PSTestMessage] {
-  override def service = PZPTestMessageService
+@Instantiate
+@Provides(specifications = Array(classOf[ActorService], classOf[IActor], classOf[CMDService]))
+class PRaftTestMessage extends PSMRaftNet[PSTestMessage] {
+  override def service = new PRaftTestMessageService()
 }
 
-//
 // http://localhost:8000/fbs/xdn/pbget.do?bd=
-object PZPTestMessageService extends OLog with PBUtils with LService[PSTestMessage] with PMNodeHelper with LogHelper {
+class PRaftTestMessageService extends OLog with PBUtils with LService[PSTestMessage] with PMNodeHelper with LogHelper {
 
   val cdlMap = new ConcurrentHashMap[String, CountDownLatch]; //new CountDownLatch(0)
 
@@ -77,8 +83,8 @@ object PZPTestMessageService extends OLog with PBUtils with LService[PSTestMessa
       ret.setRetCode(-1).setRetMessage("unknow network:" + pbo.getNid)
       handler.onFinished(PacketHelper.toPBReturn(pack, ret.build()))
     } else {
-//      MDCSetBCUID(network)
-//      MDCSetMessageID(pbo.getTypeValue + "|" + messageid);
+      //      MDCSetBCUID(network)
+      //      MDCSetMessageID(pbo.getTypeValue + "|" + messageid);
       val cdl = if (cdlMap.containsKey(messageid)) cdlMap.get(messageid) else {
         new CountDownLatch(0);
       }
@@ -92,17 +98,17 @@ object PZPTestMessageService extends OLog with PBUtils with LService[PSTestMessa
               ret.setRetCode(-2).setRetMessage("waiting for last call:");
             } else {
 
-//              val cdlr = new CountDownLatch(network.directNodes.size +
-//                network.pendingNodes.size)
-//              cdlMap.put(messageid, cdlr);
+              //              val cdlr = new CountDownLatch(network.directNodes.size +
+              //                network.pendingNodes.size)
+              //              cdlMap.put(messageid, cdlr);
               val start = System.currentTimeMillis();
-              val msg=Left(pbo.toBuilder()
-                  .setMessageid(messageid).setWallTime(System.currentTimeMillis())
-                  .setFromBcuid(network.root().bcuid)
-                  .setType(TestMessageType.PING)
-                  .setOrgBcuid(network.root().bcuid)
-                  .setNid(pbo.getNid)
-                  .build());
+              val msg = Left(pbo.toBuilder()
+                .setMessageid(messageid).setWallTime(System.currentTimeMillis())
+                .setFromBcuid(network.root().bcuid)
+                .setType(TestMessageType.PING)
+                .setOrgBcuid(network.root().bcuid)
+                .setNid(pbo.getNid)
+                .build());
               if (pbo.getDwall) {
                 network.dwallMessage("TTTPZP", msg, messageid);
               } else {
@@ -112,16 +118,16 @@ object PZPTestMessageService extends OLog with PBUtils with LService[PSTestMessa
 
                 Thread.currentThread().synchronized {
                   try {
-//                    cdlr.await()
+                    //                    cdlr.await()
                   } catch {
                     case _: Throwable =>
                   }
                 }
               }
-//              cdlMap.remove(messageid)
+              //              cdlMap.remove(messageid)
 
-//              ret.setDnodeCount(network.directNodes.size)
-//              ret.setPendingCount(network.pendingNodes.size)
+              //              ret.setDnodeCount(network.directNodes.size)
+              //              ret.setPendingCount(network.pendingNodes.size)
               ret.setBitencs(network.node_strBits)
               ret.setRetMessage("TotalCost:" + (System.currentTimeMillis() - start))
               log.debug("get Ret:" + (System.currentTimeMillis() - start))
@@ -131,7 +137,7 @@ object PZPTestMessageService extends OLog with PBUtils with LService[PSTestMessa
             Thread.sleep(pbo.getPs + 1)
             MessageSender.postMessage("TTTPZP", Left(pbo.toBuilder()
               .setRecvTime(System.currentTimeMillis())
-              .setType(TestMessageType.PONG)  
+              .setType(TestMessageType.PONG)
               .setNid(pbo.getNid)
               .setFromBcuid(network.root().bcuid)
               .build()),
@@ -166,7 +172,7 @@ object PZPTestMessageService extends OLog with PBUtils with LService[PSTestMessa
         try {
           handler.onFinished(PacketHelper.toPBReturn(pack, ret.build()))
         } finally {
-//          MDCRemoveMessageID
+          //          MDCRemoveMessageID
         }
       }
     }

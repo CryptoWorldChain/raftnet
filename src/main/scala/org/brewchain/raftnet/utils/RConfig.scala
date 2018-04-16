@@ -20,6 +20,9 @@ object RConfig {
 
   val MAX_TERM_SEC = prop.get(PROP_DOMAIN + "max.term.sec", 60); //60%
   val MIN_TERM_SEC = prop.get(PROP_DOMAIN + "min.term.sec", 10); //60%
+  
+  val COMMIT_LOG_BATCH = prop.get(PROP_DOMAIN + "commit.log.batch", 100);
+  val COMMIT_LOG_TIMEOUT_SEC = prop.get(PROP_DOMAIN + "commit.log.timeout.sec", 60);
 
   val TICK_RSM_SEC = prop.get(PROP_DOMAIN + "tick.rsm.sec", 1);
   val INITDELAY_RSM_SEC = prop.get(PROP_DOMAIN + "initdelay.rsm.sec", 1);

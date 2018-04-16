@@ -29,9 +29,17 @@ import org.brewchain.raftnet.tasks.RaftStateManager
 import org.brewchain.raftnet.tasks.RSM
 import org.brewchain.raftnet.pbgens.Raftnet.RaftState
 
+import org.apache.felix.ipojo.annotations.Instantiate
+import org.apache.felix.ipojo.annotations.Provides
+import onight.tfw.ntrans.api.ActorService
+import onight.tfw.proxy.IActor
+import onight.tfw.otransio.api.session.CMDService
+
 @NActorProvider
 @Slf4j
-object PRaftNodeJoin extends PSMRaftNet[PSJoin] {
+@Instantiate
+@Provides(specifications = Array(classOf[ActorService], classOf[IActor], classOf[CMDService]))
+class PRaftNodeJoin extends PSMRaftNet[PSJoin] {
   override def service = PRaftNodeJoinService
 }
 
@@ -54,9 +62,9 @@ object PRaftNodeJoinService extends LogHelper with PBUtils with LService[PSJoin]
         RSM.raftFollowNetByUID.map(rn => {
           ret.addNodes(rn._2);
         })
-//        if (pbo.getRn.getState == RaftState.RS_INIT) {
-          RSM.raftFollowNetByUID.put(pbo.getRn.getBcuid, pbo.getRn);
-//        }
+        //        if (pbo.getRn.getState == RaftState.RS_INIT) {
+        RSM.raftFollowNetByUID.put(pbo.getRn.getBcuid, pbo.getRn);
+        //        }
         ret.setRetCode(0).setRetMessage("SUCCESS");
       } catch {
         case e: FBSException => {

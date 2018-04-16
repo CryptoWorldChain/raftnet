@@ -34,9 +34,17 @@ import org.brewchain.raftnet.pbgens.Raftnet.RaftState
 import org.brewchain.raftnet.pbgens.Raftnet.RaftVoteResult
 import org.fc.brewchain.bcapi.JodaTimeHelper
 
+import org.apache.felix.ipojo.annotations.Instantiate
+import org.apache.felix.ipojo.annotations.Provides
+import onight.tfw.ntrans.api.ActorService
+import onight.tfw.proxy.IActor
+import onight.tfw.otransio.api.session.CMDService
+
 @NActorProvider
 @Slf4j
-object PRaftRequestVote extends PSMRaftNet[PSRequestVote] {
+@Instantiate
+@Provides(specifications = Array(classOf[ActorService], classOf[IActor], classOf[CMDService]))
+class PRaftRequestVote extends PSMRaftNet[PSRequestVote] {
   override def service = PRaftRequestVoteService
 }
 
@@ -54,36 +62,38 @@ object PRaftRequestVoteService extends LogHelper with PBUtils with LService[PSRe
       try {
         MDCSetBCUID(network)
         MDCSetMessageID(pbo.getMessageId)
-
-        if (StringUtils.isNotBlank(pbo.getResultFrom)) {
-          if (RSM.curRN().getState == RaftState.RS_CANDIDATE && StringUtils.equals(pbo.getMessageId, RSM.curVR.getMessageId) &&
-            pbo.getReqTerm == RSM.curVR.getReqTerm &&
-            pbo.getCandidateBcuid == RSM.curVR.getCandidateBcuid) {
-            log.debug("get VoteResults from:" + pbo.getResultFrom);
-            Daos.raftdb.put(pbo.getResultFrom + "-" + pbo.getMessageId + "-" + pbo.getReqTerm, // 
-              OValue.newBuilder().setSecondKey("R" + pbo.getReqTerm)
-                .setExtdata(pbo.toByteString())
-                .build())
+        if (RSM.isReady()) {
+          if (StringUtils.isNotBlank(pbo.getResultFrom)) {
+            if (RSM.curRN().getState == RaftState.RS_CANDIDATE && StringUtils.equals(pbo.getMessageId, RSM.curVR.getMessageId) &&
+              pbo.getReqTerm == RSM.curVR.getReqTerm &&
+              pbo.getCandidateBcuid == RSM.curVR.getCandidateBcuid) {
+              log.debug("get VoteResults from:" + pbo.getResultFrom);
+              Daos.raftdb.put(pbo.getResultFrom + "-" + pbo.getMessageId + "-" + pbo.getReqTerm, // 
+                OValue.newBuilder().setSecondKey("R" + pbo.getReqTerm)
+                  .setExtdata(pbo.toByteString())
+                  .build())
+            } else {
+              log.debug("cannot put vote result:Cur(S=" + RSM.curRN().getState + ",N=" + RSM.curVR.getCandidateBcuid
+                + ",T=" + RSM.curVR.getReqTerm + "),PBO(ReqTerm=" + pbo.getReqTerm + ",N=" + pbo.getCandidateBcuid + ")")
+            }
           } else {
-            log.debug("cannot put vote result:Cur(S=" + RSM.curRN().getState + ",N=" + RSM.curVR.getCandidateBcuid
-              + ",T=" + RSM.curVR.getReqTerm + "),PBO(ReqTerm=" + pbo.getReqTerm + ",N=" + pbo.getCandidateBcuid + ")")
+            log.debug("get requestvote:T=" + pbo.getReqTerm + ",curT=" + RSM.curRN().getCurTerm)
+            val newv = pbo.toBuilder();
+            newv.setResultFrom(RSM.curRN.getBcuid)
+            if (RSM.instance.updateNodeState(pbo, RaftState.RS_FOLLOWER)) {
+              //newv.setVoteN(value)
+              newv.setVr(RaftVoteResult.RVR_GRANTED)
+              log.debug("grant leader for vote:B=" + newv.getCandidateBcuid + ",N=" + newv.getVoteN + ",T="
+                + newv.getReqTerm + ",NextSec="
+                + JodaTimeHelper.secondFromNow(pbo.getTermEndMs));
+              RSM.resetVoteRequest()
+            } else {
+              newv.setVr(RaftVoteResult.RVR_NOT_GRANT)
+            }
+            RSM.raftNet().postMessage("VOTRAF", Left(newv.build()), newv.getMessageId, newv.getCandidateBcuid);
           }
         } else {
-          log.debug("get requestvote:T=" + pbo.getReqTerm + ",curT=" + RSM.curRN().getCurTerm)
-          val newv = pbo.toBuilder();
-          newv.setResultFrom(RSM.curRN.getBcuid)
-          if (RSM.instance.updateNodeState(pbo,RaftState.RS_FOLLOWER)) {
-            //newv.setVoteN(value)
-            newv.setVr(RaftVoteResult.RVR_GRANTED)
-            log.debug("grant leader for vote:B="+newv.getCandidateBcuid+",N="+newv.getVoteN+",T="
-                +newv.getReqTerm+",NextSec="
-                +JodaTimeHelper.secondFromNow(pbo.getTermEndMs)
-                );
-            RSM.resetVoteRequest()
-          } else {
-            newv.setVr(RaftVoteResult.RVR_NOT_GRANT)
-          }
-          RSM.raftNet().postMessage("VOTRAF", Left(newv.build()), newv.getMessageId, newv.getCandidateBcuid);
+          log.debug("RSM not ready cannot vote!");
         }
 
       } catch {

@@ -26,9 +26,17 @@ import org.fc.brewchain.p22p.action.PMNodeHelper
 import org.fc.brewchain.p22p.pbgens.P22P.PRetNodeInfo
 import org.brewchain.raftnet.pbgens.Raftnet.PCommand
 
+import org.apache.felix.ipojo.annotations.Instantiate
+import org.apache.felix.ipojo.annotations.Provides
+import onight.tfw.ntrans.api.ActorService
+import onight.tfw.proxy.IActor
+import onight.tfw.otransio.api.session.CMDService
+
 @NActorProvider
 @Slf4j
-object PRaftNodeInfo extends PSMRaftNet[PSNodeInfo] {
+@Instantiate
+@Provides(specifications = Array(classOf[ActorService], classOf[IActor], classOf[CMDService]))
+class PRaftNodeInfo extends PSMRaftNet[PSNodeInfo] {
   override def service = PRaftNodeInfoService
 }
 

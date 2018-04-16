@@ -55,7 +55,11 @@ case class RTask_LogWriter(pbo: PSAppendEntries,
         }
       }
       Daos.idxdb.batchPuts(keys.toArray, values.toArray)
-      RSM.instance.updateLastApplidId(maxAppledid)
+      if (maxAppledid - cn.getCommitIndex > RConfig.COMMIT_LOG_BATCH
+        || System.currentTimeMillis() - cn.getLastCommitTime > RConfig.COMMIT_LOG_TIMEOUT_SEC * 1000) {
+        RSM.instance.updateLastApplidId(maxAppledid)
+      }
+
       if (wall) {
         RSM.raftNet().wallOutsideMessage("LOGRAF", Left(pbo), pbo.getMessageId)
       }
