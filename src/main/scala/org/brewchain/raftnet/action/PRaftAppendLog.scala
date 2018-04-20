@@ -21,6 +21,7 @@ import java.net.URL
 import org.brewchain.bcapi.utils.PacketIMHelper._
 import org.brewchain.raftnet.pbgens.Raftnet.PSJoin
 import org.brewchain.raftnet.PSMRaftNet
+import org.brewchain.raftnet.action.PRaftAppendEntriesService;
 import org.fc.brewchain.p22p.utils.LogHelper
 import org.fc.brewchain.p22p.action.PMNodeHelper
 import org.brewchain.raftnet.pbgens.Raftnet.PRetJoin

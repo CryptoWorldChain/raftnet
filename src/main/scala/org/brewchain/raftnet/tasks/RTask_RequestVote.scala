@@ -11,6 +11,7 @@ import org.fc.brewchain.p22p.core.Votes
 import org.fc.brewchain.p22p.core.Votes.Converge
 import org.fc.brewchain.p22p.core.Votes.Undecisible
 import org.brewchain.raftnet.pbgens.Raftnet.RaftVoteResult
+import org.brewchain.raftnet.tasks.RSM;
 import org.brewchain.raftnet.pbgens.Raftnet.RaftState
 
 //获取其他节点的term和logidx，commitidx

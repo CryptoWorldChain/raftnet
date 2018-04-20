@@ -10,6 +10,7 @@ import org.brewchain.raftnet.pbgens.Raftnet.PRetJoin
 import org.brewchain.raftnet.utils.RConfig
 import org.brewchain.raftnet.pbgens.Raftnet.PRaftNode
 import org.brewchain.raftnet.pbgens.Raftnet.PSSyncEntries
+import org.brewchain.raftnet.tasks.RSM;
 import org.brewchain.raftnet.pbgens.Raftnet.PRetSyncEntries
 
 import scala.collection.JavaConversions._

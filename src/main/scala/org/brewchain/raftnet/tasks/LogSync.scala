@@ -10,6 +10,9 @@ import org.brewchain.raftnet.pbgens.Raftnet.PRetJoin
 import org.brewchain.raftnet.utils.RConfig
 import org.brewchain.raftnet.pbgens.Raftnet.PRaftNode
 import org.brewchain.raftnet.pbgens.Raftnet.PSSyncEntries
+import org.brewchain.raftnet.tasks.LogSync;
+import org.brewchain.raftnet.tasks.RSM;
+import org.brewchain.raftnet.tasks.Scheduler;
 import org.brewchain.raftnet.pbgens.Raftnet.PRetSyncEntries
 
 import scala.collection.JavaConversions._
@@ -47,7 +50,7 @@ object LogSync extends LogHelper {
 
     //        val cdlcount = Math.min(RConfig.SYNCLOG_MAX_RUNNER, pagecount)
     var cc = cn.getCommitIndex + 1;
-    while (cc < maxCommitIdx) {
+    while (cc <= maxCommitIdx) {
       val runner = RTask_SyncLog(startIdx = cc, endIdx = Math.min(cc + RConfig.SYNCLOG_PAGE_SIZE - 1, maxCommitIdx),
         network = network, fastNodeID, runCounter)
       cc += RConfig.SYNCLOG_PAGE_SIZE
