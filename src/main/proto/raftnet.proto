@@ -23,6 +23,15 @@ enum RaftState{
 	RS_LEADER = 3;
 }
 
+enum RaftRole{
+	RR_FULLNODE = 0;
+	RR_VERIFY = 1;
+	RR_BACKEND_SAVE = 2;
+	RR_VM_RUNNER = 3;
+	RR_BLOCK_MAKER = 4;// only make block
+}
+
+
 message PRaftNode{
 	string 		bcuid = 1;//节点
 	string 		address = 2;//拥有cws的地址
@@ -37,6 +46,7 @@ message PRaftNode{
 	string		term_uid = 11;//记录当前termid
 	int64		last_commit_time = 12;//上次提交的时间
 	int32		vote_n = 20;//
+	RaftRole	raft_role = 21;// for groups roles
 }
 
 message PSJoin{//加入

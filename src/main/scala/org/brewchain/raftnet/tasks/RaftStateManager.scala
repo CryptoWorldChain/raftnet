@@ -164,7 +164,7 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
             val sleeptime =
               Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
                 RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long]
-            log.debug("follow sleep to be candidate:" + sleeptime);
+//            log.debug("follow sleep to be candidate:" + sleeptime);
             updateNodeState(RaftState.RS_CANDIDATE);
             Thread.sleep(sleeptime)
           } else {
