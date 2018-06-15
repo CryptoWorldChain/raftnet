@@ -153,7 +153,6 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
           //tell other I will join
           loadNodeFromDB();
           RSM.raftFollowNetByUID.put(RSM.curRN().getBcuid, RSM.curRN());
-
           RTask_Join.runOnce match {
             case n: PRaftNodeOrBuilder =>
               updateNodeIdxs(n);
@@ -161,11 +160,6 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
               log.debug("not other nodes :" + x)
           }
         case RaftState.RS_FOLLOWER =>
-          //time out to elect candidate
-          //          if(network.directNodes.size > cur_rnode.getVoteN){
-          //            //has other node coming
-          //            RTask_Join.runOnce
-          //          }else
           if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
             val sleeptime =
               Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
@@ -185,7 +179,7 @@ case class RaftStateManager(network: Network) extends SRunner with LogHelper {
               // i will be master
               //wall logs//send log immediately
               retsetLogID(cur_rnode.getLogIdx);
-              RTask_SendEmptyEntry.runOnce
+//              RTask_SendEmptyEntry.runOnce// delete test
             }
           }
         case RaftState.RS_LEADER =>

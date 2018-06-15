@@ -55,7 +55,7 @@ object RTask_Join extends LogHelper with BitMap {
         }
       })
     }
-    log.debug("get nodes:count=" + RSM.raftFollowNetByUID.size+",raftnetNodecount="+network.directNodeByBcuid.size);
+//    log.debug("get nodes:count=" + RSM.raftFollowNetByUID.size+",raftnetNodecount="+network.directNodeByBcuid.size);
     //remove off line
     RSM.raftFollowNetByUID.filter(p => {
       network.nodeByBcuid(p._1) == network.noneNode

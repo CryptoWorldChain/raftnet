@@ -25,10 +25,10 @@ class RFTStartup extends PSMRaftNet[Message] {
   def init() {
 
     //    System.setProperty("java.protocol.handler.pkgs", "org.fc.brewchain.url");
-    log.debug("startup:");
+//    log.debug("startup:");
     new Thread(new RaftBGLoader()).start()
 
-    log.debug("tasks inited....[OK]");
+//    log.debug("tasks inited....[OK]");
   }
 
   @Invalidate

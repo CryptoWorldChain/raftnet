@@ -72,7 +72,7 @@ case class RTask_LogWriter(pbo: PSAppendEntries,
 object LogWriter extends LogHelper {
   val runCounter = new AtomicLong(0)
   def writeLog(pbo: PSAppendEntries, wall: Boolean): Unit = {
-    log.debug("write Log:CC=" + pbo.getEntriesCount)
+//    log.debug("write Log:CC=" + pbo.getEntriesCount)
     if (pbo.getEntriesCount > 0) {
       val lr = RTask_LogWriter(pbo, runCounter, wall)
       Scheduler.runOnce(lr)
