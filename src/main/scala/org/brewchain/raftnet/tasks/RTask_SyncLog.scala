@@ -10,7 +10,6 @@ import org.brewchain.raftnet.pbgens.Raftnet.PRetJoin
 import org.brewchain.raftnet.utils.RConfig
 import org.brewchain.raftnet.pbgens.Raftnet.PRaftNode
 import org.brewchain.raftnet.pbgens.Raftnet.PSSyncEntries
-import org.brewchain.raftnet.tasks.RSM;
 import org.brewchain.raftnet.pbgens.Raftnet.PRetSyncEntries
 
 import scala.collection.JavaConversions._
@@ -20,11 +19,13 @@ import org.brewchain.bcapi.gens.Oentity.OValue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeUnit
+import org.brewchain.bcapi.exec.SRunner
+import org.fc.brewchain.p22p.action.PMNodeHelper
 
 //获取其他节点的term和logidx，commitidx
 case class RTask_SyncLog(startIdx: Long, endIdx: Long,
     network: Network, fastNodeID: String,
-    runCounter: AtomicLong) extends SRunner with LogHelper {
+    runCounter: AtomicLong) extends SRunner  with PMNodeHelper with LogHelper {
   def getName(): String = "SyncLog:" + startIdx + "-" + (endIdx)
 
   def runOnce() = {

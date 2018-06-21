@@ -3,12 +3,6 @@ package org.brewchain.raftnet.tasks
 import org.fc.brewchain.p22p.node.Network
 import org.fc.brewchain.p22p.utils.LogHelper
 import org.brewchain.raftnet.pbgens.Raftnet.RaftState
-import org.brewchain.raftnet.tasks.LogSync;
-import org.brewchain.raftnet.tasks.RSM;
-import org.brewchain.raftnet.tasks.RTask_Join;
-import org.brewchain.raftnet.tasks.RTask_RequestVote;
-import org.brewchain.raftnet.tasks.RTask_SendEmptyEntry;
-import org.brewchain.raftnet.tasks.RTask_SendTestEntry;
 import org.brewchain.raftnet.Daos
 import org.brewchain.raftnet.pbgens.Raftnet.PRaftNode
 import org.brewchain.raftnet.pbgens.Raftnet.PRaftNodeOrBuilder
@@ -20,9 +14,11 @@ import scala.collection.mutable.Map
 import org.brewchain.raftnet.pbgens.Raftnet.PSRequestVote
 import java.util.concurrent.atomic.AtomicLong
 import org.fc.brewchain.bcapi.JodaTimeHelper
+import org.fc.brewchain.p22p.action.PMNodeHelper
+import org.brewchain.bcapi.exec.SRunner
 
 //投票决定当前的节点
-case class RaftStateManager(network: Network) extends SRunner with LogHelper {
+case class RaftStateManager(network: Network) extends SRunner with PMNodeHelper with LogHelper {
   def getName() = "RSM"
   val RAFT_NODE_DB_KEY = "CURRENT_RAFT_KEY";
   var cur_rnode: PRaftNode.Builder = PRaftNode.newBuilder()

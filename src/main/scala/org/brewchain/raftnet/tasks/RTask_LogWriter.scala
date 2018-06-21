@@ -25,10 +25,12 @@ import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.ArrayBuffer
 import org.brewchain.raftnet.pbgens.Raftnet.PSAppendEntries
 import org.apache.commons.lang3.StringUtils
+import org.brewchain.bcapi.exec.SRunner
+import org.fc.brewchain.p22p.action.PMNodeHelper
 
 //获取其他节点的term和logidx，commitidx
 case class RTask_LogWriter(pbo: PSAppendEntries,
-    runCounter: AtomicLong, wall: Boolean = false) extends SRunner with LogHelper {
+    runCounter: AtomicLong, wall: Boolean = false) extends SRunner  with PMNodeHelper with LogHelper {
   def getName(): String = "LogW:"
 
   def runOnce() = {

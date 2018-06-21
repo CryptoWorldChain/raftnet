@@ -50,7 +50,7 @@ class PRaftSyncLogs extends PSMRaftNet[PSSyncEntries] {
 // http://localhost:8000/fbs/xdn/pbget.do?bd=
 object PRaftSyncLogsService extends LogHelper with PBUtils with LService[PSSyncEntries] with PMNodeHelper {
   override def onPBPacket(pack: FramePacket, pbo: PSSyncEntries, handler: CompleteHandler) = {
-    log.debug("RequestSyncService::" + pack.getFrom())
+//    log.debug("RequestSyncService::" + pack.getFrom())
     var ret = PRetSyncEntries.newBuilder();
     if (!RSM.isReady()) {
       ret.setRetCode(-1).setRetMessage("Raft Network Not READY")

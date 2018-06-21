@@ -54,7 +54,7 @@ class PRaftRequestVote extends PSMRaftNet[PSRequestVote] {
 // http://localhost:8000/fbs/xdn/pbget.do?bd=
 object PRaftRequestVoteService extends LogHelper with PBUtils with LService[PSRequestVote] with PMNodeHelper {
   override def onPBPacket(pack: FramePacket, pbo: PSRequestVote, handler: CompleteHandler) = {
-    log.debug("RequestVoteService::" + pack.getFrom())
+//    log.debug("RequestVoteService::" + pack.getFrom())
     var ret = PRetRequestVote.newBuilder();
     val network = networkByID("raft")
     if (network == null) {
