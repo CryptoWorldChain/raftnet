@@ -34,20 +34,22 @@ object RTask_Join extends LogHelper with BitMap {
         def onSuccess(fp: FramePacket) = {
           log.debug("send JINRAF success:to " + n.uri + ",body=" + fp.getBody)
           val end = System.currentTimeMillis();
-          val retjoin = PRetJoin.newBuilder().mergeFrom(fp.getBody);
-          if (retjoin.getRetCode() == 0) { //same message
-            if (fastNode == null) {
-              fastNode = retjoin.getRn;
-            } else if (retjoin.getRn.getCurTerm >= fastNode.getCurTerm && retjoin.getRn.getCommitIndex >= maxCommitIdx) {
-              if (end - start < minCost) { //set the fast node
-                minCost = end - start
+          if (fp.getBody != null) {
+            val retjoin = PRetJoin.newBuilder().mergeFrom(fp.getBody);
+            if (retjoin.getRetCode() == 0) { //same message
+              if (fastNode == null) {
                 fastNode = retjoin.getRn;
+              } else if (retjoin.getRn.getCurTerm >= fastNode.getCurTerm && retjoin.getRn.getCommitIndex >= maxCommitIdx) {
+                if (end - start < minCost) { //set the fast node
+                  minCost = end - start
+                  fastNode = retjoin.getRn;
+                }
               }
+              log.debug("get other nodeInfo:T=" + retjoin.getRn.getCurTerm +
+                ",commitLog=" + retjoin.getRn.getCommitIndex + ",lastapply=" +
+                retjoin.getRn.getLastApplied);
+              RSM.raftFollowNetByUID.put(retjoin.getRn.getBcuid, retjoin.getRn);
             }
-            log.debug("get other nodeInfo:T=" + retjoin.getRn.getCurTerm +
-              ",commitLog=" + retjoin.getRn.getCommitIndex + ",lastapply=" +
-              retjoin.getRn.getLastApplied);
-            RSM.raftFollowNetByUID.put(retjoin.getRn.getBcuid, retjoin.getRn);
           }
         }
         def onFailed(e: java.lang.Exception, fp: FramePacket) {
@@ -55,7 +57,7 @@ object RTask_Join extends LogHelper with BitMap {
         }
       })
     }
-//    log.debug("get nodes:count=" + RSM.raftFollowNetByUID.size+",raftnetNodecount="+network.directNodeByBcuid.size);
+    //    log.debug("get nodes:count=" + RSM.raftFollowNetByUID.size+",raftnetNodecount="+network.directNodeByBcuid.size);
     //remove off line
     RSM.raftFollowNetByUID.filter(p => {
       network.nodeByBcuid(p._1) == network.noneNode
