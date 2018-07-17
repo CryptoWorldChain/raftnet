@@ -57,7 +57,7 @@ class RaftBGLoader() extends Runnable with OLog {
       log.debug("raftnet not ready. raftnet=" + raftnet)
       Thread.sleep(5000);
     }
-    log.debug("raftnet.initOK:My Node" + raftnet.root()) // my node
+    log.debug("raftnet.initOK:My Node=" + raftnet.root()) // my node
     RSM.instance = RaftStateManager(raftnet);
 
     Scheduler.scheduleWithFixedDelay(RSM.instance, RConfig.INITDELAY_RSM_SEC,

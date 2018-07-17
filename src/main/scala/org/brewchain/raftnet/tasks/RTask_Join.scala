@@ -25,7 +25,7 @@ object RTask_Join extends LogHelper with BitMap {
     val cn = RSM.instance.cur_rnode;
     var fastNode: PRaftNodeOrBuilder = cn;
     var minCost: Long = Long.MaxValue;
-    var maxCommitIdx: Long = 0;
+    var maxCommitIdx: Long = 0; 
     MDCSetBCUID(network)
 
     network.directNodes.filter { n => !RSM.raftFollowNetByUID.contains(n.bcuid) }.map { n =>
