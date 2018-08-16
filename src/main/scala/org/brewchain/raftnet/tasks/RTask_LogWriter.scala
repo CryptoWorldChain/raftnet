@@ -60,7 +60,7 @@ case class RTask_LogWriter(pbo: PSAppendEntries,
         RSM.instance.updateLastApplidId(maxAppledid)
 
       if (wall) {
-        RSM.raftNet().wallOutsideMessage("LOGRAF", Left(pbo), pbo.getMessageId)
+        RSM.raftNet().wallOutsideMessage("LOGRAF", Left(pbo), pbo.getMessageId,0)
       }
     } catch {
       case e: Throwable =>

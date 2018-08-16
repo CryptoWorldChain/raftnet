@@ -33,7 +33,7 @@ class RFTStartup extends PSMRaftNet[Message] {
 
   @Invalidate
   def destory() {
-
+    RSM.instance.isStop = true;
   }
 
 }

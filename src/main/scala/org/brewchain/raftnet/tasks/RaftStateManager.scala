@@ -129,76 +129,78 @@ case class RaftStateManager(network: Network) extends SRunner with PMNodeHelper 
     Daos.raftdb.put(RAFT_NODE_DB_KEY,
       OValue.newBuilder().setExtdata(cur_rnode.build().toByteString()).build())
   }
+  var isStop = false;
   def runOnce() = {
     Thread.currentThread().setName("RaftStateManager");
     implicit val _net = network
     MDCSetBCUID(network);
     MDCRemoveMessageID()
-    try {
-      //      RaftStateManager.rsm = this;
-      log.info("RSM.RunOnce:S=" + cur_rnode.getState + ",T=" + cur_rnode.getCurTerm + ",L=" + cur_rnode.getLogIdx
-        + ",N=" + cur_rnode.getVoteN
-        + ",RN=" + RSM.raftFollowNetByUID.size
-        + ",OL=" + cur_rnode.getLastApplied + ",CL=" + cur_rnode.getCommitIndex
-        + ",NextSec=" + JodaTimeHelper.secondFromNow(cur_rnode.getTermEndMs)
-        + ",Leader=" + cur_rnode.getVotedFor + ",TUID=" + cur_rnode.getTermUid
-        + ",VR.T=" + RSM.curVR.getReqTerm
-        + ",VR.P=" + JodaTimeHelper.secondFromNow(RSM.curVR.getVoteStartMs));
-      cur_rnode.getState match {
-        case RaftState.RS_INIT =>
-          //tell other I will join
-          loadNodeFromDB();
-          RSM.raftFollowNetByUID.put(RSM.curRN().getBcuid, RSM.curRN());
-          RTask_Join.runOnce match {
-            case n: PRaftNodeOrBuilder =>
-              updateNodeIdxs(n);
-            case x @ _ =>
-              log.debug("not other nodes :" + x)
-          }
-        case RaftState.RS_FOLLOWER =>
-          if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
-            val sleeptime =
-              Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
-                RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long]
-//            log.debug("follow sleep to be candidate:" + sleeptime);
-            updateNodeState(RaftState.RS_CANDIDATE);
-            Thread.sleep(sleeptime)
-          } else {
-            RTask_Join.runOnce
-          }
-        case RaftState.RS_CANDIDATE =>
-          //check vote result
-          if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
-            //elected
-            //try to elect
-            if (RTask_RequestVote.runOnce) {
-              // i will be master
-              //wall logs//send log immediately
-              retsetLogID(cur_rnode.getLogIdx);
-//              RTask_SendEmptyEntry.runOnce// delete test
+    if (!isStop)
+      try {
+        //      RaftStateManager.rsm = this;
+        log.info("RSM.RunOnce:S=" + cur_rnode.getState + ",T=" + cur_rnode.getCurTerm + ",L=" + cur_rnode.getLogIdx
+          + ",N=" + cur_rnode.getVoteN
+          + ",RN=" + RSM.raftFollowNetByUID.size
+          + ",OL=" + cur_rnode.getLastApplied + ",CL=" + cur_rnode.getCommitIndex
+          + ",NextSec=" + JodaTimeHelper.secondFromNow(cur_rnode.getTermEndMs)
+          + ",Leader=" + cur_rnode.getVotedFor + ",TUID=" + cur_rnode.getTermUid
+          + ",VR.T=" + RSM.curVR.getReqTerm
+          + ",VR.P=" + JodaTimeHelper.secondFromNow(RSM.curVR.getVoteStartMs));
+        cur_rnode.getState match {
+          case RaftState.RS_INIT =>
+            //tell other I will join
+            loadNodeFromDB();
+            RSM.raftFollowNetByUID.put(RSM.curRN().getBcuid, RSM.curRN());
+            RTask_Join.runOnce match {
+              case n: PRaftNodeOrBuilder =>
+                updateNodeIdxs(n);
+              case x @ _ =>
+                log.debug("not other nodes :" + x)
             }
-          }
-        case RaftState.RS_LEADER =>
-          //time out to become follower
-          //
-          if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
-            //elected
-            //try to elect
-            updateNodeState(RaftState.RS_FOLLOWER)
-          } else {
-            RTask_SendTestEntry.runOnce
-          }
-        case _ =>
-          log.warn("unknow State:" + cur_rnode.getState);
+          case RaftState.RS_FOLLOWER =>
+            if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
+              val sleeptime =
+                Math.abs((Math.random() * RConfig.CANDIDATE_MAX_WAITMS) +
+                  RConfig.CANDIDATE_MIN_WAITMS).asInstanceOf[Long]
+              //            log.debug("follow sleep to be candidate:" + sleeptime);
+              updateNodeState(RaftState.RS_CANDIDATE);
+              Thread.sleep(sleeptime)
+            } else {
+              RTask_Join.runOnce
+            }
+          case RaftState.RS_CANDIDATE =>
+            //check vote result
+            if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
+              //elected
+              //try to elect
+              if (RTask_RequestVote.runOnce) {
+                // i will be master
+                //wall logs//send log immediately
+                retsetLogID(cur_rnode.getLogIdx);
+                //              RTask_SendEmptyEntry.runOnce// delete test
+              }
+            }
+          case RaftState.RS_LEADER =>
+            //time out to become follower
+            //
+            if (System.currentTimeMillis() > cur_rnode.getTermEndMs) {
+              //elected
+              //try to elect
+              updateNodeState(RaftState.RS_FOLLOWER)
+            } else {
+              //            RTask_SendTestEntry.runOnce
+            }
+          case _ =>
+            log.warn("unknow State:" + cur_rnode.getState);
 
+        }
+
+      } catch {
+        case e: Throwable =>
+          log.debug("raft sate managr :Error", e);
+      } finally {
+        MDCRemoveMessageID()
       }
-
-    } catch {
-      case e: Throwable =>
-        log.debug("raft sate managr :Error", e);
-    } finally {
-      MDCRemoveMessageID()
-    }
   }
 }
 
